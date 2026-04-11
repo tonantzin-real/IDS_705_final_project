@@ -21,7 +21,7 @@ def load_dataset(nb, split, data_dir="data", cluster_id=None, n=3):
 
     # Load
     X = pd.read_parquet(X_path)
-    y = pd.read_parquet(y_path)
+    y = pd.read_parquet(y_path).squeeze()
 
     # Print info
     label = f"{split}" if cluster_id is None else f"{split} | cluster {cluster_id}"
