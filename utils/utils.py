@@ -1,5 +1,11 @@
 from pathlib import Path
 import pandas as pd
+from sklearn.metrics import (
+    average_precision_score,
+    f1_score,
+    precision_score,
+    recall_score,
+)
 
 
 def load_dataset(nb, split, data_dir="data", cluster_id=None, n=3):
@@ -10,8 +16,8 @@ def load_dataset(nb, split, data_dir="data", cluster_id=None, n=3):
         X_path = data_dir / f"{nb}_X_{split}.parquet"
         y_path = data_dir / f"{nb}_y_{split}.parquet"
     else:
-        X_path = data_dir / f"{nb}_X_{split}_cluster_{cluster_id}.parquet"
-        y_path = data_dir / f"{nb}_y_{split}_cluster_{cluster_id}.parquet"
+        X_path = data_dir / f"{nb}_X_{split}_c{cluster_id}.parquet"
+        y_path = data_dir / f"{nb}_y_{split}_c{cluster_id}.parquet"
 
     # Load
     X = pd.read_parquet(X_path)
@@ -31,3 +37,19 @@ def load_dataset(nb, split, data_dir="data", cluster_id=None, n=3):
     # display(y.head(n))
 
     return X, y
+
+
+def evaluate_model(model, X_val, y_val, threshold=0.5):
+    """
+    Evaluate a binary classifier using probability outputs.
+    """
+    y_prob = model.predict_proba(X_val)[:, 1]
+    y_pred = (y_prob >= threshold).astype(int)
+
+    metrics = {
+        "AUC_PR": average_precision_score(y_val, y_prob),
+        "F1": f1_score(y_val, y_pred),
+        "Precision": precision_score(y_val, y_pred),
+        "Recall": recall_score(y_val, y_pred),
+    }
+    return metrics
