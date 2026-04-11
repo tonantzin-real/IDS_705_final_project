@@ -53,3 +53,13 @@ def evaluate_model(model, X_val, y_val, threshold=0.5):
         "Recall": recall_score(y_val, y_pred),
     }
     return metrics
+
+
+def evaluate_from_probs(y_true, y_prob, threshold=0.5):
+    y_pred = (y_prob >= threshold).astype(int)
+    return {
+        "AUC_PR": average_precision_score(y_true, y_prob),
+        "F1": f1_score(y_true, y_pred),
+        "Precision": precision_score(y_true, y_pred),
+        "Recall": recall_score(y_true, y_pred),
+    }
