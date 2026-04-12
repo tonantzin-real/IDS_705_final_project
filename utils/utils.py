@@ -1,5 +1,6 @@
 from pathlib import Path
 import pandas as pd
+import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.metrics import (
@@ -137,3 +138,22 @@ def plot_cluster_pr_curves(
 
     plt.tight_layout()
     plt.show()
+
+
+def evaluate_with_profit(y_true, y_prob, threshold, C_call, B_sub):
+    # decision rule
+    y_pred = (y_prob >= threshold).astype(int)
+
+    contacted = y_pred == 1
+
+    # profit only from contacted users
+    expected_profit = np.sum(y_prob[contacted] * B_sub - C_call)
+
+    return {
+        "AUC_PR": average_precision_score(y_true, y_prob),
+        "Precision": precision_score(y_true, y_pred, zero_division=0),
+        "Recall": recall_score(y_true, y_pred),
+        "F1": f1_score(y_true, y_pred),
+        "% Contacted": contacted.mean() * 100,
+        "Expected Profit": expected_profit,
+    }
