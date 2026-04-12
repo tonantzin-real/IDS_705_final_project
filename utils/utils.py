@@ -8,7 +8,9 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
     precision_recall_curve,
+    auc,
 )
+
 
 sns.set(style="whitegrid")
 sns.set_palette("deep")
@@ -71,17 +73,76 @@ def evaluate_from_probs(y_true, y_prob, threshold=0.5):
     }
 
 
-def plot_pr_curve(y_true, y_prob, label, ax=None):
-    if ax is None:
-        fig, ax = plt.subplots(figsize=(8, 6))
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import precision_recall_curve, average_precision_score
 
-    precision, recall, _ = precision_recall_curve(y_true, y_prob)
+sns.set(style="whitegrid")
+sns.set_palette("deep")
 
-    # Plot using Seaborn's lineplot for nicer aesthetics
-    sns.lineplot(x=recall, y=precision, ax=ax, label=label)
 
-    ax.set_xlabel("Recall")
-    ax.set_ylabel("Precision")
-    ax.set_title("Precision-Recall Curve")
-    ax.legend()
-    ax.grid(True)
+def plot_cluster_pr_curves(
+    global_probs_cal,
+    y_val,
+    X_val,
+    cluster_models,
+    cluster_calibrators,
+    cluster_metadata,
+    X_val_full,
+    cluster_col="cluster",
+):
+    """
+    Plots Precision-Recall curves for each cluster with global and cluster-specific models.
+    Each cluster gets its own subplot with PR AUC annotated.
+    Uses a 2x2 grid for up to 4 clusters per figure.
+    """
+    cluster_ids = sorted(X_val_full[cluster_col].unique())
+    n_clusters = len(cluster_ids)
+    n_cols = 2
+    n_rows = (n_clusters + 1) // 2
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(12, 5 * n_rows))
+    axes = axes.flatten()
+
+    for i, cluster_id in enumerate(cluster_ids):
+        ax = axes[i]
+        idx = X_val_full[cluster_col] == cluster_id
+
+        # Global model
+        y_true = y_val.loc[idx]
+        y_prob_global = global_probs_cal[idx]
+        precision_g, recall_g, _ = precision_recall_curve(y_true, y_prob_global)
+        auc_g = average_precision_score(y_true, y_prob_global)  # updated here
+        sns.lineplot(
+            x=recall_g, y=precision_g, ax=ax, label=f"Global (AUC={auc_g:.3f})"
+        )
+        ax.fill_between(recall_g, precision_g, alpha=0.1)
+
+        # Cluster-specific model
+        model = cluster_models[cluster_id]
+        calibrator = cluster_calibrators[cluster_id]
+        metadata = cluster_metadata[cluster_id]
+        X_val_cluster = X_val.loc[idx, metadata["features"]]
+        y_prob_cluster = calibrator.transform(model.predict_proba(X_val_cluster)[:, 1])
+        precision_c, recall_c, _ = precision_recall_curve(y_true, y_prob_cluster)
+        auc_c = average_precision_score(y_true, y_prob_cluster)  # updated here
+        sns.lineplot(
+            x=recall_c,
+            y=precision_c,
+            ax=ax,
+            label=f"Cluster-specific (AUC={auc_c:.3f})",
+        )
+        ax.fill_between(recall_c, precision_c, alpha=0.1)
+
+        ax.set_title(f"Cluster {cluster_id}")
+        ax.set_xlabel("Recall")
+        ax.set_ylabel("Precision")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
+    # Hide unused axes if clusters < n_rows*n_cols
+    for j in range(i + 1, len(axes)):
+        axes[j].set_visible(False)
+
+    plt.tight_layout()
+    plt.show()
