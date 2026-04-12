@@ -1,11 +1,17 @@
 from pathlib import Path
 import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 from sklearn.metrics import (
     average_precision_score,
     f1_score,
     precision_score,
     recall_score,
+    precision_recall_curve,
 )
+
+sns.set(style="whitegrid")
+sns.set_palette("deep")
 
 
 def load_dataset(nb, split, data_dir="data", cluster_id=None, n=3):
@@ -63,3 +69,19 @@ def evaluate_from_probs(y_true, y_prob, threshold=0.5):
         "Precision": precision_score(y_true, y_pred),
         "Recall": recall_score(y_true, y_pred),
     }
+
+
+def plot_pr_curve(y_true, y_prob, label, ax=None):
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(8, 6))
+
+    precision, recall, _ = precision_recall_curve(y_true, y_prob)
+
+    # Plot using Seaborn's lineplot for nicer aesthetics
+    sns.lineplot(x=recall, y=precision, ax=ax, label=label)
+
+    ax.set_xlabel("Recall")
+    ax.set_ylabel("Precision")
+    ax.set_title("Precision-Recall Curve")
+    ax.legend()
+    ax.grid(True)
