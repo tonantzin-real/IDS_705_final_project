@@ -11,7 +11,6 @@ from sklearn.metrics import (
     auc,
 )
 
-
 sns.set(style="whitegrid")
 sns.set_palette("deep")
 
@@ -71,14 +70,6 @@ def evaluate_from_probs(y_true, y_prob, threshold=0.5):
         "Precision": precision_score(y_true, y_pred),
         "Recall": recall_score(y_true, y_pred),
     }
-
-
-import matplotlib.pyplot as plt
-import seaborn as sns
-from sklearn.metrics import precision_recall_curve, average_precision_score
-
-sns.set(style="whitegrid")
-sns.set_palette("deep")
 
 
 def plot_cluster_pr_curves(
