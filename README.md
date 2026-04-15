@@ -4,14 +4,14 @@ This project builds and evaluates machine learning models to predict whether a b
 
 The modeling strategy compares:
 
-- a single **global** LightGBM model trained on all clients, and  
+- a single **global** LightGBM model trained on all clients, then calibrated with an optimal decision threshold, and  
 - a **segmented** approach: K-Means customer segments (k = 4), then one LightGBM + calibrator + profit-optimal threshold per segment.
 
 The end goal is not only predictive performance, but **business impact** using a cost–benefit framework (expected profit from contacting customers vs. call cost).
 
 ---
 
-## Notebooks (what each one actually does)
+## Notebooks: what each one actually does
 
 ### `00_initial_eda.ipynb` — first-pass exploration
 
@@ -37,17 +37,16 @@ The end goal is not only predictive performance, but **business impact** using a
 - **Preprocessing** (scaling / encoding): fit **only** on the train+validation portion to avoid leakage; transform test accordingly.
 - **Segmentation**: subset of demographic / socioeconomic columns → optional PCA for diagnostics → **K-Means with k = 4** chosen using inertia, silhouette, Davies–Bouldin, and Calinski–Harabasz; cluster IDs are appended as column `cluster`.
 - Writes **cluster-augmented** modeling matrices: `data/02_X_train_val.parquet`, `data/02_y_train_val.parquet`, `data/02_X_test.parquet`, `data/02_y_test.parquet` (features include `cluster` where applicable).
-- **Second stratified split** inside train+validation: `data/02_X_train.parquet`, `data/02_y_train.parquet`, `data/02_X_validation.parquet`, `data/02_y_validation.parquet`.
+- **Second stratified split (80/20)** inside train+validation: `data/02_X_train.parquet`, `data/02_y_train.parquet`, `data/02_X_validation.parquet`, `data/02_y_validation.parquet`.
 - **Per-cluster slices** for segmented training: `data/02_X_{split}_c#.parquet` and `data/02_y_{split}_c#.parquet` for `split` ∈ {`train`, `validation`, `test`} and `#` ∈ {0,…,3} (see [Data files](#data-files) for the pattern).
 
 ### `03_training.ipynb` — model bake-off, calibration, thresholds
 
-- **Architecture comparison** on validation-style metrics: logistic regression, tree ensembles, **LightGBM**, **XGBoost**, **CatBoost** (with imbalance-aware class weighting). **LightGBM** is selected as the main workhorse (slightly stronger AUC-PR vs. CatBoost on validation in the notebook narrative).
+- **Models used (validation comparison)**: logistic regression, random forest, **XGBoost**, **LightGBM**, and **CatBoost** (with imbalance-aware class weighting).
 - **Global model**: train LightGBM on all training data; **isotonic calibration** on validation probabilities; save `models/global_model.joblib`, `models/global_calibrator.joblib`, `models/global_metadata.joblib` (includes the feature list used at inference).
 - **Segmented models**: repeat per cluster with **cluster-specific** `scale_pos_weight`; each segment gets its own `models/c#_*` artifacts.
-- **Business-aligned thresholds**: on the validation set, search thresholds to **maximize expected profit** under fixed `C_call` and `B_sub` (same constants as in `04_evaluation.ipynb`); save `models/global_threshold.joblib` and `models/cluster_thresholds.joblib`.
+- **Business-aligned thresholds**: on the validation set, search thresholds to **maximize expected profit** under fixed `C_call` and `B_sub` (where `C_call` is cost per call and `B_sub` is benefit per successful subscription; same constants as in `04_evaluation.ipynb`); save `models/global_threshold.joblib` and `models/cluster_thresholds.joblib`.
 - **Figures**: per-cluster **precision–recall curves** comparing global vs. cluster-specific models (`plot_cluster_pr_curves` in `utils/utils.py`).
-- **Side effect**: running CatBoost may write/update `catboost_info/` (training logs).
 
 ### `04_evaluation.ipynb` — held-out test, global vs. segmented
 
