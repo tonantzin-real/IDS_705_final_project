@@ -63,7 +63,7 @@ The end goal is not only predictive performance, but **business impact** using a
 | File | Purpose |
 |------|---------|
 | `README.md` | Project overview, file map, and results summary. |
-| `requirements.txt` | Pinned Python dependencies (`pandas`, `scikit-learn`, `lightgbm`, `xgboost`, `catboost`, `optuna`, etc.). |
+| `requirements.txt` | Pinned Python dependencies. |
 | `00_initial_eda.ipynb` | First exploratory pass on the CSV. |
 | `01_eda.ipynb` | Structured EDA; writes `data/01_raw_data.parquet`. |
 | `02_preprocessing.ipynb` | Engineering, splits, K-Means, parquet exports. |
