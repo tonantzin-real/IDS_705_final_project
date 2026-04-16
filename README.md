@@ -4,14 +4,14 @@ This project builds and evaluates machine learning models to predict whether a b
 
 The modeling strategy compares:
 
-- a single **global** LightGBM model trained on all clients, then calibrated with an optimal decision threshold, and  
-- a **segmented** approach: K-Means customer segments (k = 4), then one LightGBM + calibrator + profit-optimal threshold per segment.
+- **Unified Global Baseline:** A comprehensive LightGBM classifier trained on the full dataset, featuring an integrated Isotonic calibration layer and an empirically derived decision threshold optimized for maximum profit. 
+- **Segmented Personas Strategy:** A "local-optimization" approach utilizing K-Means clustering ($k=4$) to partition the customer base into distinct behavioral segments, with each segment served by its own dedicated LightGBM model, probability calibrator, and segment-specific optimal threshold.
 
 The end goal is not only predictive performance, but **business impact** using a cost–benefit framework (expected profit from contacting customers vs. call cost).
 
 ---
 
-## Notebooks: what each one actually does
+## Notebooks
 
 ### `00_initial_eda.ipynb` — first-pass exploration
 
@@ -35,14 +35,14 @@ The end goal is not only predictive performance, but **business impact** using a
 - Builds **`X` / `y`**: drops the label from features; saves `data/02_X_raw.parquet` and `data/02_y_raw.parquet`.
 - **Stratified split**: 80% train+validation vs. 20% test (`random_state` fixed); saves pre-clustering split features and labels as `data/02_X_train_val_raw.parquet`, `data/02_y_train_val_raw.parquet`, `data/02_X_test_raw.parquet`, `data/02_y_test_raw.parquet`.
 - **Preprocessing** (scaling / encoding): fit **only** on the train+validation portion to avoid leakage; transform test accordingly.
-- **Segmentation**: subset of demographic / socioeconomic columns → optional PCA for diagnostics → **K-Means with k = 4** chosen using inertia, silhouette, Davies–Bouldin, and Calinski–Harabasz; cluster IDs are appended as column `cluster`.
+- **Segmentation**: subset of demographic / socioeconomic columns → optional PCA for diagnostics → **K-Means with k = 4** chosen using inertia, silhouette and Davies–Bouldin; cluster IDs are appended as column `cluster`.
 - Writes **cluster-augmented** modeling matrices: `data/02_X_train_val.parquet`, `data/02_y_train_val.parquet`, `data/02_X_test.parquet`, `data/02_y_test.parquet` (features include `cluster` where applicable).
-- **Second stratified split (80/20)** inside train+validation: `data/02_X_train.parquet`, `data/02_y_train.parquet`, `data/02_X_validation.parquet`, `data/02_y_validation.parquet`.
-- **Per-cluster slices** for segmented training: `data/02_X_{split}_c#.parquet` and `data/02_y_{split}_c#.parquet` for `split` ∈ {`train`, `validation`, `test`} and `#` ∈ {0,…,3} (see [Data files](#data-files) for the pattern).
+- **Second stratified split (80/20)** within train + validation: `data/02_X_train.parquet`, `data/02_y_train.parquet`, `data/02_X_validation.parquet`, `data/02_y_validation.parquet`.
+- **Per-cluster slices** for segmented training: `data/02_X_{split}_c#.parquet` and `data/02_y_{split}_c#.parquet` for `split` ∈ {`train`, `validation`, `test`} and `#` ∈ {0,…,3}.
 
 ### `03_training.ipynb` — model bake-off, calibration, thresholds
 
-- **Models used (validation comparison)**: logistic regression, random forest, **XGBoost**, **LightGBM**, and **CatBoost** (with imbalance-aware class weighting).
+- **Models used (validation comparison)**: Logistic Regression, Random Forest, XGBoost, LightGBM, and CatBoost with imbalance-aware class weighting.
 - **Global model**: train LightGBM on all training data; **isotonic calibration** on validation probabilities; save `models/global_model.joblib`, `models/global_calibrator.joblib`, `models/global_metadata.joblib` (includes the feature list used at inference).
 - **Segmented models**: repeat per cluster with **cluster-specific** `scale_pos_weight`; each segment gets its own `models/c#_*` artifacts.
 - **Business-aligned thresholds**: on the validation set, search thresholds to **maximize expected profit** under fixed `C_call` and `B_sub` (where `C_call` is cost per call and `B_sub` is benefit per successful subscription; same constants as in `04_evaluation.ipynb`); save `models/global_threshold.joblib` and `models/cluster_thresholds.joblib`.
@@ -50,7 +50,7 @@ The end goal is not only predictive performance, but **business impact** using a
 
 ### `04_evaluation.ipynb` — held-out test, global vs. segmented
 
-- Loads test features with `cluster`, all `models/*.joblib` artifacts, and applies **frozen** validation-chosen thresholds (no test tuning).
+- Loads test features with `cluster`, all `models/*.joblib` artifacts, and applies **frozen** validation-chosen thresholds.
 - Reports **AUC-PR**, precision, recall, F1, **% contacted**, and **expected profit** for global vs. segmented strategies (aggregate and per cluster).
 - Interprets trade-offs: coverage (recall, % contacted) vs. efficiency (precision) and profit.
 
@@ -189,7 +189,7 @@ Numbers below are **reproduced from the saved outputs in `04_evaluation.ipynb`**
 | 3      | Global    | 0.429  | 0.255     | 0.786  | 0.385 |
 | 3      | Segmented | 0.415  | 0.257     | 0.735  | 0.381 |
 
-**Takeaway:** Globally, recall tends to favor the **global** model; **segmented** models sometimes win on precision or F1 in a given cluster (e.g. cluster 2 F1), but the pattern is **not uniform**.
+**Takeaway:** Globally, recall tends to favor the **global** model; **segmented** models sometimes win on precision or F1 in a given cluster (e.g. cluster 2 F1), but the pattern is not uniform.
 
 ### Per-cluster expected profit and contact intensity (test)
 
@@ -200,12 +200,12 @@ Numbers below are **reproduced from the saved outputs in `04_evaluation.ipynb`**
 | 2      | 1125          | 844              | 31.71              | 25.35                  |
 | 3      | 1916          | 2112             | 44.41              | 41.24                  |
 
-**Takeaway:** Segmentation helps **expected profit in clusters 0 and 3** (with cluster 0 nearly a tie), while **clusters 1 and 2 favor the global model** under the same cost assumptions. That mixed pattern explains why aggregate profit can still favor the single global policy.
+**Takeaway:** Segmentation helps*expected profit in cluster 3 (with cluster 0 nearly a tie), while **clusters 1 and 2 favor the global model** under the same cost assumptions. That mixed pattern explains why aggregate profit can still favor the single global policy.
 
 ### Figures to consult in the notebooks
 
 - **`03_training.ipynb`**: precision–recall curves **by cluster** (global vs. cluster-specific calibrated scores)—direct visual support for the AUC-PR / precision–recall trade-offs.  
-- **`02_preprocessing.ipynb`**: clustering diagnostics (inertia / silhouette / DB / CH plots) and **subscription rate by cluster** (bar / stability views)—justify using k = 4 and show segment heterogeneity.  
+- **`02_preprocessing.ipynb`**: clustering diagnostics (inertia / silhouette / Davies–Bouldin plots) and subscription rate by cluster (bar / stability views)—justify using k = 4 and show segment heterogeneity.  
 - **`04_evaluation.ipynb`**: displays the same tables as above when executed; use it as the live source of truth if you change costs or retrain.
 
 ---
