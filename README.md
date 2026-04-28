@@ -54,6 +54,14 @@ The end goal is not only predictive performance, but **business impact** using a
 - Reports **AUC-PR**, precision, recall, F1, **% contacted**, and **expected profit** for global vs. segmented strategies (aggregate and per cluster).
 - Interprets trade-offs: coverage (recall, % contacted) vs. efficiency (precision) and profit.
 
+### `05_bootstrap_evaluation.ipynb` — evaluation with uncertainty (bootstrap)
+- Extends the test evaluation by introducing bootstrap resampling to quantify variability in model performance.
+- Repeats evaluation across multiple resampled test sets (250 iterations).
+- Reports mean ± standard deviation for all metrics (AUC-PR, precision, recall, F1, % contacted, expected profit).
+- Compares global vs. segmented strategies not only by performance but by stability.
+- Includes per-cluster bootstrap analysis to assess whether segmentation improvements are consistent or sample-dependent.
+**Purpose**: move from point estimates to statistically robust conclusions for decision-making.
+
 ---
 
 ## Repository layout — every file
@@ -69,6 +77,7 @@ The end goal is not only predictive performance, but **business impact** using a
 | `02_preprocessing.ipynb` | Engineering, splits, K-Means, parquet exports. |
 | `03_training.ipynb` | Model selection, calibration, threshold tuning, saves `models/`. |
 | `04_evaluation.ipynb` | Final test evaluation and business metrics. |
+| `05_bootstrap_evaluation.ipynb` |	Bootstrap-based evaluation with uncertainty estimates for all metrics. |
 
 ### `data/`
 
@@ -149,7 +158,7 @@ pip install -r requirements.txt
 jupyter notebook
 ```
 
-**Recommended order:** `00_initial_eda.ipynb` → `01_eda.ipynb` → `02_preprocessing.ipynb` → `03_training.ipynb` → `04_evaluation.ipynb`.
+**Recommended order:** `00_initial_eda.ipynb` → `01_eda.ipynb` → `02_preprocessing.ipynb` → `03_training.ipynb` → `04_evaluation.ipynb` → `05_bootstrap_evaluation.ipynb`.
 
 Running in sequence regenerates parquet intermediates, `models/`, and keeps evaluation consistent with training.
 
@@ -202,6 +211,12 @@ Numbers below are **reproduced from the saved outputs in `04_evaluation.ipynb`**
 
 **Takeaway:** Segmentation helps*expected profit in cluster 3 (with cluster 0 nearly a tie), while **clusters 1 and 2 favor the global model** under the same cost assumptions. That mixed pattern explains why aggregate profit can still favor the single global policy.
 
+### Bootstrap-based stability (`05_bootstrap_evaluation.ipynb`)
+1. Across 250 bootstrap samples, both strategies show similar variability across all metrics.
+2. The global model consistently maintains higher recall and expected profit, indicating that its advantage is stable rather than driven by sampling noise.
+3. Segmented models show localized gains in some clusters, but these improvements are not consistently robust across resamples.
+**Takeaway:** Differences observed in the standard evaluation are statistically stable at the aggregate level, while segmentation benefits remain cluster-dependent.
+
 ### Figures to consult in the notebooks
 
 - **`03_training.ipynb`**: precision–recall curves **by cluster** (global vs. cluster-specific calibrated scores)—direct visual support for the AUC-PR / precision–recall trade-offs.  
@@ -213,3 +228,5 @@ Numbers below are **reproduced from the saved outputs in `04_evaluation.ipynb`**
 ## Interpretation
 
 Final model choice should combine **ranking quality (AUC-PR)**, **operational load (% contacted)**, and **expected profit**, not accuracy alone. This repository implements that end-to-end: calibrated probabilities, profit-optimal thresholds on validation, and a clean held-out test comparison.
+
+Bootstrap results further reinforce that model selection should consider not only average performance but also the stability and reliability of outcomes under sampling variability.
