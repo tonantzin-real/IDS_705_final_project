@@ -215,6 +215,7 @@ Numbers below are **reproduced from the saved outputs in `04_evaluation.ipynb`**
 1. Across 250 bootstrap samples, both strategies show similar variability across all metrics.
 2. The global model consistently maintains higher recall and expected profit, indicating that its advantage is stable rather than driven by sampling noise.
 3. Segmented models show localized gains in some clusters, but these improvements are not consistently robust across resamples.
+   
 **Takeaway:** Differences observed in the standard evaluation are statistically stable at the aggregate level, while segmentation benefits remain cluster-dependent.
 
 ### Figures to consult in the notebooks
